@@ -2,70 +2,56 @@ open System
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.DependencyInjection
-open Microsoft.AspNetCore.Hosting
 open Microsoft.EntityFrameworkCore 
-open Microsoft.EntityFrameworkCore.Sqlite
-open EntityFrameworkCore.FSharp.Extensions
+open HotChocolate.Types 
+open HotChocolate.Data
+open HotChocolate;
 
-[<CLIMutable>]
-type Person =
-    { Id : Guid
-      FirstName : string
-      LastName : string
-      Address : string
-      City : string}
+// [<CLIMutable>]
+// type Person =
+//     { Id : Guid
+//       FirstName : string
+//       LastName : string
+//       Address : string
+//       City : string}
+
+type Person() =
+    member val Id = Guid.NewGuid() with get, set
+    member val FirstName = "" with get, set
+    member val LastName = "" with get, set
+    member val Address = "" with get, set
+    member val City = "" with get, set
 
 type AppDbContext(opts) =
     inherit DbContext(opts)
-
-    // member this.Persons : DbSet<Person> = System.Linq.Set<Person>()
-
-    [<DefaultValue>]
-    val mutable persons : DbSet<Person> 
-
-    // override _.OnModelCreating builder =
-    //     builder.RegisterOptionTypes() // enables option values for all entities
-
-    member public this.Persons with get() = this.persons
-                               and set p = this.persons <- p
-
-
-type Author(name:string) =
-    member this.Name = name;
-
-type Book(title:string, author:Author) =
-    member this.Title = title;
-    member this.Author = author;
+    member this.Persons = this.Set<Person>()
 
 type Query() =
-    member this.Book =
-        new Book("F#", new Author("Jon"))
-
-type Mutation() =
-    member this.CreateBook (book:Book) =
-        new Book("F#", new Author("Jon"))
-
+    [<UsePaging>]
+    [<UseProjection>]
+    [<UseFiltering>]
+    [<UseSorting>]
+    member this.Persons ([<Service>] dbContext: AppDbContext) =
+        dbContext.Persons
 
 [<EntryPoint>]
 let main args =
 
     let builder = WebApplication.CreateBuilder(args)
-
     builder.Services
-            .AddDbContext<AppDbContext>(fun opts -> opts.UseSqlite("Data Source=foo.sqlite") |> ignore)
+            .AddDbContext<AppDbContext>(
+                fun opts -> opts.UseSqlite("Data Source=foo.sqlite") |> ignore
+            )
             .AddGraphQLServer()
             .AddQueryType<Query>()
-            .AddMutationType<Mutation>() |> ignore
+            .AddFiltering()
+            .AddSorting()
+            .AddProjections() |> ignore
 
     let app = builder.Build()
-
     app.UseDeveloperExceptionPage() |> ignore
-    app.UseRouting()
-           .UseEndpoints(fun endpoints ->
-               endpoints.MapGraphQL() |> ignore
-            ) |> ignore
-    app.MapGet("/", Func<string>(fun () -> "Hello World!")) |> ignore
-
+    app.UseRouting() |> ignore
+    app.MapGraphQL() |> ignore
 
     let createDb =
         use scope = app.Services.CreateScope()
