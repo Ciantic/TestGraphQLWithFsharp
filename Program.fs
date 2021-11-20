@@ -26,26 +26,32 @@ type AppDbContext(opts) =
     inherit DbContext(opts)
     member this.Persons = this.Set<Person>()
 
+// F# way of doing stuff
+
+// Curried functions is the normal, e.g. this is: input -> AppDbContext -> Person
+let createPerson (input: {| firstName: string; lastName: string; |}) (dbContext: AppDbContext) =
+    let mutable person = Person(
+            FirstName = input.firstName,
+            LastName = input.lastName
+        )
+    dbContext.Persons.Add(person) |> ignore
+    dbContext.SaveChanges() |> ignore
+    person
+
+let getPersons (dbContext: AppDbContext) =
+    dbContext.Persons
+
+// C# way of doing stuff
 type Query() =
     [<UsePaging>]
     [<UseProjection>]
     [<UseFiltering>]
     [<UseSorting>]
-    member this.Persons ([<Service>] dbContext: AppDbContext) =
-        dbContext.Persons
+    member this.Persons ([<Service>] dbContext: AppDbContext) = getPersons dbContext
 
 type Mutation() =
-    member this.CreatePerson(input: {|
-        firstName: String
-        lastName: String
-    |}, [<Service>] dbContext: AppDbContext) =
-        let mutable person = Person(
-            FirstName = input.firstName,
-            LastName = input.lastName
-        )
-        dbContext.Persons.Add(person) |> ignore
-        dbContext.SaveChanges() |> ignore
-        person
+    member this.CreatePerson(input, [<Service>] dbContext: AppDbContext) =
+        createPerson input dbContext
 
 [<EntryPoint>]
 let main args =
