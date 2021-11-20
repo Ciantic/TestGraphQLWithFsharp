@@ -7,6 +7,7 @@ open HotChocolate.Types
 open HotChocolate.Data
 open HotChocolate;
 
+// Ideally we would like to use records, which works with EntityFramework, but not yet in HotChocolate:
 // [<CLIMutable>]
 // type Person =
 //     { Id : Guid
